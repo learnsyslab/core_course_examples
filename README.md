@@ -24,6 +24,26 @@ These examples complement the theoretical concepts covered in the lectures by pr
 └── ... # More examples
 ```
 
+## Course Content
+Each chapter folder contains one or more notebooks. The table lists the main methods covered in each of them.
+
+| Chapter | Notebook | Main methods |
+|:--|:--|:--|
+| **1. Dynamic Programming**<br>`ex1_DP/` | [1.1 Dynamic Programming](ex1_DP/1.1_dynamic_programming.ipynb) | mountain car environment and system dynamics, dynamic programming |
+| **2. Linear Quadratic Regulator**<br>`ex2_LQR/` | [2.1 Linear Quadratic Regulator](ex2_LQR/2.1_linear_quadratic_regulator.ipynb) | finite-horizon LQR, infinite-horizon LQR |
+| **3. Optimization Fundamentals**<br>`ex3_OPT/` | [3.1 Optimization Fundamentals](ex3_OPT/3.1_optimization_fundamentals.ipynb) | *unconstrained:* gradient descent, Newton's method, line search<br>*constrained:* KKT conditions, quadratic programming (QP), sequential quadratic programming (SQP) |
+| **4. Iterative LQR**<br>`ex4_iLQR/` | [4.1 Iterative LQR](ex4_iLQR/4.1_iterative_linear_quadratic_regulator.ipynb) | iterative LQR (iLQR) |
+| **5. Model Predictive Control**<br>`ex5_MPC/` | [5.1 Model Predictive Control](ex5_MPC/5.1_model_predictive_control_part1.ipynb) | open-loop optimal control, linear MPC, nonlinear MPC |
+| | [5.2 Tracking and Robust MPC](ex5_MPC/5.2_model_predictive_control_part2.ipynb) | tracking MPC, robust MPC |
+| **6. Model Learning and Learning-based Control**<br>`ex6_SysID/` | [6.1 Model Learning](ex6_SysID/6.1_SysID.ipynb) | linear regression (LR), Bayesian linear regression (BLR) |
+| | [6.2 Learning-based MPC](ex6_SysID/6.2_Learning_Based_MPC.ipynb) | MPC with an LR model, robust MPC with a BLR model |
+| | [6.3 GP Learning and GP-MPC](ex6_SysID/6.3_GP_Learning_and_GP_MPC.ipynb) | Gaussian process (GP) regression, BLR vs. GP, GP-MPC |
+| | [6.4 Data-Enabled Predictive Control](ex6_SysID/6.4_Data_Enabled_Predictive_Control.ipynb) | Willems' fundamental lemma, DeePC, regularized DeePC for nonlinear systems |
+| **7. Reinforcement Learning**<br>`ex7_RL/` | [7.0 Stochastic Shortest Path](ex7_RL/7.0_ssp.ipynb) | stochastic shortest path (SSP) problem |
+| | [7.1 Model-based RL](ex7_RL/7.1_mbrl.ipynb) | value iteration, policy iteration |
+| | [7.2 Model-free RL](ex7_RL/7.2_mfrl.ipynb) | Monte Carlo method, Q-learning |
+| **8. Deep Reinforcement Learning**<br>`ex8_DRL/` | [8.1 Deep Reinforcement Learning](ex8_DRL/8.1_drl.ipynb) | proximal policy optimization (PPO) |
+
 ## Setup
 
 ### Docker Desktop

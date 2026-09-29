@@ -98,7 +98,7 @@ COPY . /app
 
 # install python dependencies
 RUN python -m pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir seaborn cvxopt pycddlib==2.1.0 pytope
+RUN pip install --no-cache-dir seaborn cvxopt pycddlib==2.1.0 pytope osqp
 
 # install torch (cpu version)
 RUN pip install --no-cache-dir torch==2.3.0+cpu torchvision \

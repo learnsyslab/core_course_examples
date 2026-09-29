@@ -18,6 +18,7 @@ class Env:
             symbolic_h_mean_ext_case: Callable[[ca.Function], ca.Function] = None, 
             symbolic_h_mean_ext: Callable[[ca.Function], ca.Function] = None, 
             symbolic_h_cov_ext: Callable[[ca.Function], ca.Function] = None, 
+            symbolic_dh_cov_ext: Callable[[ca.Function], ca.Function] = None,
             symbolic_theta_ext: Callable[[ca.Function], ca.Function] = None,
             param: float = None,
             state_lbs: np.ndarray = None, 
@@ -86,6 +87,18 @@ class Env:
             self.h_cov = symbolic_h_cov_ext
         else:
             self.h_cov = None
+
+        # Set the variance of the *slope*, Var[h'(p)], based on given expression.
+        # The dynamics depend on h only through the inclination theta(p) = atan(h'(p)),
+        # so this - and not the variance of h itself - is what propagates into the
+        # process noise covariance. Note that Var[h'(p)] cannot be recovered from the
+        # marginal variance Var[h(p)]: it is the second mixed derivative of the joint
+        # covariance, d^2/dp dp' Cov[h(p), h(p')] evaluated at p' = p, and must
+        # therefore be supplied by the model that produced h_cov.
+        if symbolic_dh_cov_ext:
+            self.dh_cov = symbolic_dh_cov_ext
+        else:
+            self.dh_cov = None
         
         # Set functions theta(p) based on symbolic parameters or given expression
         if not symbolic_theta_ext:
@@ -417,14 +430,21 @@ class Dynamics:
 
         Gravity = 9.81
 
-        # Automatic differentiation of h(p) and Var[h(p)]
+        # Mean slope by automatic differentiation of h(p)
         mu_h = self.env.h(p)
-        dmu_h = ca.gradient(mu_h, p)
-        sigma_h2 = self.env.h_cov(p)
-        dsigma_h2 = ca.gradient(sigma_h2, p)
+        mu_dh = ca.gradient(mu_h, p)
 
-        mu_dh = dmu_h
-        sigma_dh = ca.fabs(dsigma_h2)  # safety clamp to non-negative
+        # Variance of the slope Var[h'(p)]. When the learned model supplies it
+        # (symbolic_dh_cov_ext, see Chapter 6.3) it is used directly: for a model that
+        # is linear in the parameters this is phi'(p)^T Sigma phi'(p), for a GP it is
+        # the second mixed derivative of the posterior covariance. Otherwise fall back
+        # to the original approximation of Chapter 6.2, the derivative of the marginal
+        # variance Var[h(p)], which is kept so that the earlier notebooks run unchanged.
+        if getattr(self.env, "dh_cov", None) is not None:
+            sigma_dh = self.env.dh_cov(p)
+        else:
+            sigma_h2 = self.env.h_cov(p)
+            sigma_dh = ca.fabs(ca.gradient(sigma_h2, p))  # safety clamp to non-negative
 
         # Mean of trig terms
         denom = ca.sqrt(1 + mu_dh**2)

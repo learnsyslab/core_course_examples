@@ -656,3 +656,134 @@ def animate_training_progress(
     anim = FuncAnimation(fig, update, frames=len(sample_indices), interval=1500, repeat=False)
     plt.close(fig)
     return HTML(anim.to_jshtml())
+
+
+'''------Gaussian Process Regression------'''
+
+
+class Identifier_GP:
+    """
+    Gaussian process regression with a squared-exponential (RBF) kernel,
+
+        k(p, p') = sigma_f^2 * exp( -(p - p')^2 / (2 l^2) ),
+
+    used as the black-box counterpart to Identifier_BLR. It assumes only that the
+    terrain is smooth, so all of its structural knowledge sits in the two
+    hyperparameters l (lengthscale) and sigma_f (signal standard deviation).
+    """
+
+    def __init__(
+        self,
+        lengthscale: float = 0.1,
+        signal_std: float = 0.01,
+        noise_std: float = 0.005
+    ) -> None:
+
+        self.lengthscale = lengthscale
+        self.signal_std = signal_std
+        self.noise_std = noise_std
+        self.p_train = None
+        self.h_train = None
+
+    def _kernel(self, pa, pb):
+        d = np.asarray(pa).reshape(-1, 1) - np.asarray(pb).reshape(1, -1)
+        return self.signal_std**2 * np.exp(-0.5 * (d / self.lengthscale)**2)
+
+    def log_marginal_likelihood(self, p, h) -> float:
+        """Evidence of the data under the current hyperparameters."""
+        p, h = np.asarray(p).ravel(), np.asarray(h).ravel()
+        K = self._kernel(p, p) + (self.noise_std**2 + 1e-12) * np.eye(len(p))
+        L = np.linalg.cholesky(K)
+        alpha = np.linalg.solve(L.T, np.linalg.solve(L, h))
+        return float(-0.5 * h @ alpha - np.sum(np.log(np.diag(L))) - 0.5 * len(p) * np.log(2 * np.pi))
+
+    def optimize_hyperparameters(self, p, h, lengthscales=None, signal_stds=None):
+        """Grid search on the log marginal likelihood."""
+        lengthscales = np.logspace(-2, np.log10(2.0), 50) if lengthscales is None else lengthscales
+        signal_stds = np.logspace(np.log10(5e-4), -1, 40) if signal_stds is None else signal_stds
+        best_lml, best_hp = -np.inf, (self.lengthscale, self.signal_std)
+        for l in lengthscales:
+            for s in signal_stds:
+                self.lengthscale, self.signal_std = l, s
+                lml = self.log_marginal_likelihood(p, h)
+                if lml > best_lml:
+                    best_lml, best_hp = lml, (l, s)
+        self.lengthscale, self.signal_std = best_hp
+        return best_hp, best_lml
+
+    def fit(self, p, h) -> None:
+        self.p_train = np.asarray(p).reshape(-1, 1)
+        self.h_train = np.asarray(h).reshape(-1, 1)
+        p_flat = self.p_train.ravel()
+        K = self._kernel(p_flat, p_flat) + (self.noise_std**2 + 1e-12) * np.eye(len(p_flat))
+        self.L = np.linalg.cholesky(K)
+        self.alpha = np.linalg.solve(self.L.T, np.linalg.solve(self.L, self.h_train.ravel()))
+        self.K_inv = np.linalg.inv(K)
+
+    def predict(self, p, include_noise: bool = True) -> tuple:
+        p = np.asarray(p).reshape(-1, 1)
+        Ks = self._kernel(p.ravel(), self.p_train.ravel())
+        mean = (Ks @ self.alpha).reshape(-1, 1)
+        v = np.linalg.solve(self.L, Ks.T)
+        var = self.signal_std**2 - np.sum(v**2, axis=0).reshape(-1, 1)
+        if include_noise:
+            var = var + self.noise_std**2
+        return mean, np.sqrt(np.maximum(var, 1e-18))
+
+    def plot(self, p_test=None, true_func=None, title='Gaussian Process', ax=None) -> None:
+        if self.p_train is None:
+            raise ValueError("You must fit the model before plotting.")
+        if p_test is None:
+            p_test = np.linspace(self.p_train.min(), self.p_train.max(), 300).reshape(-1, 1)
+        y_mean, y_std = self.predict(p_test)
+        if ax is None:
+            _, ax = plt.subplots(figsize=(8, 5))
+            ax.set_title(title)
+        if true_func is not None:
+            ax.plot(p_test, [float(true_func(p)) for p in p_test], 'b--', label='True function', linewidth=2)
+        ax.plot(self.p_train, self.h_train, 'k.', label='Training Data', alpha=0.5, markersize=10)
+        ax.plot(p_test, y_mean, color='red', label='Model prediction (GP)', linewidth=2)
+        for i in range(1, 4):
+            ax.fill_between(p_test.ravel(), (y_mean - i*y_std).ravel(), (y_mean + i*y_std).ravel(),
+                            color='coral', alpha=0.15 if i == 3 else 0.3,
+                            label='Model uncertainty (3 std.)' if i == 3 else None)
+        ax.set_xlabel('p'); ax.set_ylabel('h(p)'); ax.grid(True); ax.legend()
+
+
+def construct_gp_casadi_expression(model: Identifier_GP) -> tuple:
+    """
+    Turn a fitted Identifier_GP into CasADi functions usable inside an MPC.
+
+    Returns (h_func, sigma2_h, sigma2_dh), where
+
+    - h_func(p)    = k_*(p)^T (K + sigma_n^2 I)^{-1} y            posterior mean
+    - sigma2_h(p)  = k(p,p) - k_*(p)^T K_inv k_*(p) + sigma_n^2   posterior variance of h
+    - sigma2_dh(p) = Var[h'(p)]                                   posterior variance of the slope
+
+    The slope variance is the second mixed derivative of the posterior covariance,
+    d^2/dp dp' [ k(p,p') - k_*(p)^T K_inv k_*(p') ] at p' = p. For the squared-
+    exponential kernel the first term evaluates to sigma_f^2 / l^2, and the second
+    is obtained by differentiating k_*. It is *not* the derivative of sigma2_h.
+    """
+    if model.p_train is None:
+        raise ValueError("The GP must be fitted before it can be converted to CasADi.")
+
+    p_sym = ca.MX.sym("p")
+    P = ca.DM(model.p_train.reshape(-1, 1))
+    l, sf, sn = model.lengthscale, model.signal_std, model.noise_std
+    K_inv = ca.DM(model.K_inv)
+
+    # k_*(p): kernel between the test point and every training input
+    ks = sf**2 * ca.exp(-0.5 * ((p_sym - P) / l)**2)
+
+    h_expr = ca.dot(ks, ca.DM(model.alpha.reshape(-1, 1)))
+    h_func = ca.Function("h_gp", [p_sym], [h_expr])
+
+    var_expr = sf**2 - ca.mtimes([ks.T, K_inv, ks]) + sn**2
+    sigma2_h = ca.Function("sigma2_h_gp", [p_sym], [var_expr])
+
+    dks = ca.jacobian(ks, p_sym)
+    dvar_expr = sf**2 / l**2 - ca.mtimes([dks.T, K_inv, dks])
+    sigma2_dh = ca.Function("sigma2_dh_gp", [p_sym], [dvar_expr])
+
+    return h_func, sigma2_h, sigma2_dh

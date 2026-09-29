@@ -166,6 +166,7 @@ cython_debug/
 # Dev Container
 .devcontainer/
 .github/
+.claude/
 
 # Acados
 ex5_MPC/*.json
@@ -176,3 +177,5 @@ ex7_RL/*.json
 ex7_RL/c_generated_code/
 ex8_DRL/*.json
 ex8_DRL/c_generated_code/
+*codegen_*/
+.DS_Store
