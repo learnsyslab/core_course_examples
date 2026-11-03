@@ -7,8 +7,8 @@ Ported from the `safety/` package of the CDC tutorial safe-RL code, without gymn
 a stand-alone copy of the `CartPoleSwingUp-v0` environment used there (gymnasium's CartPole dynamics, the pole
 starting downward, a dense reward, a 500-step limit), so only numpy is needed at run time.
 
-    from utils.safety_filter import CartPoleSwingUp, SafetyWrapper
-    env = SafetyWrapper(CartPoleSwingUp())            # loads the precomputed set from utils/safe_sets/
+    from appendix.safety_filter import CartPoleSwingUp, SafetyWrapper
+    env = SafetyWrapper(CartPoleSwingUp())            # loads the precomputed set from appendix/safe_sets/
     obs, info = env.reset(seed=0)
     obs, reward, terminated, truncated, info = env.step(action)   # executes a safe force, shaped reward
 
@@ -29,7 +29,7 @@ and leaving the interval ends the episode with a penalty of `wall_penalty`.
 
 The invariant set (a 41 x 41 x 48 x 41 grid over x, x_dot, theta, theta_dot) ships in `safe_sets/`. Recomputing it,
 e.g. for other bounds, needs `pip install "jax[cpu]" hj-reachability` and takes about 12 minutes on a CPU.
-`python utils/safety_filter.py` runs the invariance checks.
+`python appendix/safety_filter.py` runs the invariance checks.
 """
 import hashlib
 import json

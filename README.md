@@ -43,6 +43,7 @@ Each chapter folder contains one or more notebooks. The table lists the main met
 | | [7.1 Model-based RL](ex7_RL/7.1_mbrl.ipynb) | value iteration, policy iteration |
 | | [7.2 Model-free RL](ex7_RL/7.2_mfrl.ipynb) | Monte Carlo method, Q-learning |
 | **8. Deep Reinforcement Learning**<br>`ex8_DRL/` | [8.1 Deep Reinforcement Learning](ex8_DRL/8.1_drl.ipynb) | proximal policy optimization (PPO) |
+| **Appendix: Safe Reinforcement Learning**<br>`appendix/` | [A.1 Safe Reinforcement Learning](appendix/A.1_safe_rl.ipynb) | cart-pole swing-up, deep Q-network (DQN), safety filter from a control-invariant set (Hamilton-Jacobi reachability), CBF-based reward shaping, safe DQN |
 
 ## Setup
 

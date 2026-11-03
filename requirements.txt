@@ -8,3 +8,5 @@ ipykernel
 jupyterlab
 deepnote
 osqp
+jax[cpu]
+hj-reachability
